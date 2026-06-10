@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { UserEntity } from './entity/user.entity';
 import { RegisterDto } from './dto/register.dto';
+import { hash } from 'src/utils/hash';
 
 @Injectable()
 export class UserService {
@@ -35,8 +35,7 @@ export class UserService {
       }
     }
 
-    // hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hash(password);
 
     // 💾 save user
     const user = await this.userRepo.save({
@@ -46,12 +45,11 @@ export class UserService {
       password: hashedPassword,
     });
 
-    // 🚫 remove password from response
-    delete user.password;
+    const { password: _, ...safeUser } = user;
 
     return {
       message: 'User registered successfully',
-      user,
+      user: safeUser,
     };
   }
 }
