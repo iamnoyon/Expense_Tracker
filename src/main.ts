@@ -1,9 +1,25 @@
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { BadRequestException, ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      exceptionFactory: (validationErrors) => {
+        const error = validationErrors.map((err) => ({
+          [err.property]: err.constraints
+            ? Object.values(err.constraints)[0]
+            : 'Invalid value',
+        }));
+        return new BadRequestException({ error });
+      },
+    }),
+  );
 
   const swaggerEnabled =
     process.env.SWAGGER_ENABLED === 'true' ||
