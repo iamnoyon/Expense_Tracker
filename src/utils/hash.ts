@@ -6,6 +6,9 @@ export async function hash(data: string): Promise<string> {
   return bcrypt.hash(data, SALT_ROUNDS);
 }
 
-export async function compare(data: string, encrypted: string): Promise<boolean> {
+export async function compare(
+  data: string,
+  encrypted: string,
+): Promise<boolean> {
   return bcrypt.compare(data, encrypted);
 }

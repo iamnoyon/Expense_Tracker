@@ -20,7 +20,7 @@ export class RegisterDto {
   phone: string;
 
   @ApiPropertyOptional({ example: 'john@example.com' })
-  @IsOptional()
+  @IsString()
   @IsEmail()
   email?: string;
 

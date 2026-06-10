@@ -45,6 +45,7 @@ export class UserService {
       password: hashedPassword,
     });
 
+    // without password user object
     const { password: _, ...safeUser } = user;
 
     return {
