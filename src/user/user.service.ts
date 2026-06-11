@@ -1,9 +1,13 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from './entity/user.entity';
-import { RegisterDto } from './dto/register.dto';
-import { hash } from 'src/utils/hash';
+import { LoginDto, RegisterDto } from './dto/register.dto';
+import { hashPassword, comparePassword } from 'src/utils/hash';
 
 @Injectable()
 export class UserService {
@@ -35,7 +39,7 @@ export class UserService {
       }
     }
 
-    const hashedPassword = await hash(password);
+    const hashedPassword = await hashPassword(password);
 
     // 💾 save user
     const user = await this.userRepo.save({
@@ -52,5 +56,29 @@ export class UserService {
       message: 'User registered successfully',
       user: safeUser,
     };
+  }
+
+  async login(dto: LoginDto) {
+    const { email, password } = dto;
+
+    // find user
+    const findUser = await this.userRepo.findOne({
+      where: { email },
+    });
+
+    //user not found handel
+    if (!findUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isPassMatch = await comparePassword(password, findUser.password);
+
+    if (!isPassMatch) {
+      throw new NotFoundException('Invalid password');
+    }
+
+    return isPassMatch;
+
+    return findUser;
   }
 }
