@@ -77,7 +77,6 @@ async function bootstrap() {
       .setTitle('Expense Tracker API')
       .setDescription('API documentation')
       .setVersion('1.0')
-      .addBearerAuth()
       .addCookieAuth('access_token')
       .build();
 
