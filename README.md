@@ -1,98 +1,190 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Expense Tracker API
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Production-ready NestJS backend for an expense tracking application with modular architecture, JWT authentication, PostgreSQL database, and full DevOps tooling.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Tech Stack & Package Responsibilities
 
-## Description
+| Package | Role |
+|---------|------|
+| **@nestjs/core** | NestJS application framework — DI container, module system, lifecycle |
+| **@nestjs/common** | Decorators (`@Controller`, `@Injectable`, `@Get`, `@UseGuards`, etc.), pipes, filters, interceptors |
+| **@nestjs/platform-express** | HTTP server adapter (Express under the hood) |
+| **@nestjs/config** | Environment configuration — loads `.env`, validates via Joi schema |
+| **@nestjs/typeorm** + **typeorm** | ORM — entity mapping, repositories, migrations, DB connection pooling |
+| **pg** | PostgreSQL driver |
+| **@nestjs/jwt** | JWT token signing and verification |
+| **@nestjs/passport** + **passport** + **passport-jwt** | Authentication strategy — validates JWT from cookies/headers, attaches user to request |
+| **bcrypt** | Password hashing (10 salt rounds) |
+| **class-validator** + **class-transformer** | DTO validation decorators (`@IsEmail`, `@MinLength`) + serialization (`@Exclude`) |
+| **@nestjs/swagger** + **swagger-ui-express** | OpenAPI documentation — auto-generates API docs from decorators, serves Swagger UI |
+| **cookie-parser** | Parses `access_token` and `refresh_token` cookies from incoming requests |
+| **helmet** | HTTP security headers — CSP, XSS, clickjacking protection |
+| **@nestjs/throttler** | Rate limiting — 20 requests per 60s window per IP |
+| **@nestjs/terminus** | Health checks — database connectivity, memory, disk space |
+| **nest-winston** + **winston** | Structured logging — colorized console in dev, JSON files (error.log, combined.log) in production |
+| **joi** | Runtime environment variable validation — ensures required vars exist on startup |
+| **jest** + **ts-jest** + **supertest** | Unit testing (`*.spec.ts`) and E2E testing (`test/*.e2e-spec.ts`) |
+| **eslint** + **prettier** | Code linting and formatting |
+| **Docker** | Multi-stage build (~100MB), production-optimized image |
+| **GitHub Actions** | CI pipeline — lint, build, test with PostgreSQL service container |
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## Architecture
 
-## Project setup
-
-```bash
-$ npm install
+```
+src/
+├── main.ts                    # Bootstrap — CORS, helmet, cookie-parser, Swagger, global pipes/filters/interceptors
+├── app.module.ts              # Root module — imports all feature modules + global config
+├── app.controller.ts          # GET /api (health check placeholder)
+├── app.service.ts
+├── auth/                      # Authentication module
+│   ├── auth.module.ts
+│   ├── auth.controller.ts     # POST /auth/register, POST /auth/login
+│   ├── auth.service.ts
+│   ├── strategies/
+│   │   └── jwt.strategy.ts    # Passport strategy — extracts JWT from cookies or Bearer header
+│   ├── guards/
+│   │   ├── jwt-auth.guard.ts  # Protects routes: @UseGuards(JwtAuthGuard)
+│   │   └── roles.guard.ts     # Role-based access: @UseGuards(RolesGuard) + @Roles('admin')
+│   └── decorators/
+│       ├── roles.decorator.ts     # @Roles(UserRole.ADMIN)
+│       └── current-user.decorator.ts  # @CurrentUser() user, @CurrentUser('id') userId
+├── user/                      # User module
+│   ├── user.module.ts
+│   ├── user.controller.ts     # GET /user/profile, PATCH /user/profile
+│   ├── user.service.ts        # register, findById, updateProfile, validateUser
+│   ├── entity/user.entity.ts  # users table — name, phone, email, role, address relations
+│   └── dto/
+│       ├── register.dto.ts
+│       └── login.dto.ts
+├── address/                   # Address module (divisions/districts/upazilas)
+│   ├── address.module.ts
+│   ├── address.controller.ts  # GET /address/divisions, /divisions/:id/districts, /districts/:id/upazilas
+│   ├── address.service.ts
+│   └── entity/
+│       ├── division.entity.ts
+│       ├── district.entity.ts
+│       └── upazilla.entity.ts
+├── health/                    # Health check module
+│   ├── health.module.ts
+│   └── health.controller.ts   # GET /health — DB, memory, disk checks
+├── common/                    # Shared infrastructure
+│   ├── env.validation.ts      # Joi schema for .env validation
+│   ├── winston.logger.ts      # Winston logger factory (console + file transports)
+│   ├── filters/
+│   │   └── all-exceptions.filter.ts   # Global error handler — consistent JSON error envelope
+│   ├── interceptors/
+│   │   └── response.interceptor.ts    # Wraps all responses in { success, data, timestamp }
+│   └── middleware/
+│       └── request-logger.middleware.ts # Logs METHOD /path STATUS DURATION
+├── database/
+│   ├── data-source.ts         # TypeORM CLI data source for migrations
+│   └── migrations/            # Generated migration files
+└── utils/
+    └── hash.ts                # bcrypt hash/compare helpers
 ```
 
-## Compile and run the project
+## Request/Response Flow
 
-```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```
+Client → cookie-parser → helmet → CORS → Rate Limiter → Request Logger →
+  Global ValidationPipe → Global Exception Filter →
+    Controller → @UseGuards(JwtAuthGuard → JwtStrategy) → Service → Repository → DB
+  ← Global Response Interceptor ←
 ```
 
-## Run tests
+## Authentication Flow
 
-```bash
-# unit tests
-$ npm run test
+1. **Register**: `POST /api/v1/auth/register` → hashes password, saves user
+2. **Login**: `POST /api/v1/auth/login` → validates credentials, signs JWT (1h access + 7d refresh), sets httpOnly cookies
+3. **Protected routes**: `JwtStrategy` extracts token from `access_token` cookie → validates signature via `JWT_SECRET` → attaches user to `req.user`
+4. **Role-based access**: `RolesGuard` checks `req.user.role` against required roles
 
-# e2e tests
-$ npm run test:e2e
+## Environment Variables
 
-# test coverage
-$ npm run test:cov
+```env
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=your_password
+DB_DATABASE=expense_tracker
+
+# JWT
+JWT_SECRET=your-256-bit-secret-min-16-chars
+JWT_REFRESH_SECRET=another-secret-min-16-chars
+
+# App
+NODE_ENV=development          # development | production | test
+PORT=3000
+CORS_ORIGIN=http://localhost:3000,http://localhost:5173
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Setup & Run
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Install dependencies
+npm install
+
+# Copy environment
+cp .env.example .env   # then edit .env with your values
+
+# Development (watch mode)
+npm run start:dev
+
+# Production build
+npm run build && npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## API Documentation
 
-## Resources
+Swagger UI is available at `/api-docs` when `NODE_ENV !== 'production'` or `SWAGGER_ENABLED=true`.
 
-Check out a few resources that may come in handy when working with NestJS:
+All endpoints are prefixed with `/api/v1/`.
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Docker Deployment
 
-## Support
+```bash
+# Start all services (app + postgres)
+docker compose up -d
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+# Rebuild app image
+docker compose up -d --build app
 
-## Stay in touch
+# View logs
+docker compose logs -f app
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+The Dockerfile uses multi-stage build — the production image is ~100MB and runs as a non-root user.
 
-## License
+## Database Migrations
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```bash
+# Generate migration after entity changes
+npx typeorm-ts-node-commonjs migration:generate src/database/migrations/MigrationName -d src/database/data-source.ts
+
+# Run migrations
+npx typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts
+
+# Revert last migration
+npx typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts
+```
+
+## Testing
+
+```bash
+# Unit tests
+npm run test
+
+# With coverage
+npm run test:cov
+
+# E2E tests (requires running database)
+npm run test:e2e
+```
+
+## CI/CD
+
+GitHub Actions (`./github/workflows/ci.yml`) runs on push/PR to `main`:
+- `npm ci` → `npm run lint` → `npm run build` → `npm run test:cov`
+- PostgreSQL 16 service container provides the test database
+- Environment variables injected for test context
