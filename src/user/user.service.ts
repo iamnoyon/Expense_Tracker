@@ -71,13 +71,18 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
 
+    //password matching
     const isPassMatch = await comparePassword(password, findUser.password);
 
+    //handle incorrect password
     if (!isPassMatch) {
       throw new NotFoundException('Invalid password');
     }
 
-    return isPassMatch;
+    // without password user object
+    const { password: _, ...safeUser } = findUser;
+
+    return safeUser;
 
     return findUser;
   }
