@@ -1,12 +1,14 @@
 import {
   Injectable,
   BadRequestException,
+  UnauthorizedException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UserEntity } from './entity/user.entity';
-import { LoginDto, RegisterDto } from './dto/register.dto';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 import { hashPassword, comparePassword } from 'src/utils/hash';
 
 @Injectable()
@@ -19,7 +21,6 @@ export class UserService {
   async register(dto: RegisterDto) {
     const { name, phone, email, password } = dto;
 
-    // 🔍 check phone exists
     const phoneExists = await this.userRepo.findOne({
       where: { phone },
     });
@@ -28,7 +29,6 @@ export class UserService {
       throw new BadRequestException('Phone already exists');
     }
 
-    // 🔍 check email exists (if given)
     if (email) {
       const emailExists = await this.userRepo.findOne({
         where: { email },
@@ -41,7 +41,6 @@ export class UserService {
 
     const hashedPassword = await hashPassword(password);
 
-    // 💾 save user
     const user = await this.userRepo.save({
       name,
       phone,
@@ -49,39 +48,49 @@ export class UserService {
       password: hashedPassword,
     });
 
-    // without password user object
-    const { password: _, ...safeUser } = user;
-
     return {
       message: 'User registered successfully',
-      user: safeUser,
+      user,
     };
+  }
+
+  async findById(id: number) {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user) return null;
+    return user;
+  }
+
+  async updateProfile(
+    id: number,
+    dto: Partial<Pick<UserEntity, 'name' | 'phone' | 'address'>>,
+  ) {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    await this.userRepo.update(id, dto);
+    return this.userRepo.findOne({ where: { id } });
   }
 
   async validateUser(dto: LoginDto) {
     const { email, password } = dto;
 
-    // find user
     const findUser = await this.userRepo.findOne({
       where: { email },
+      select: ['id', 'email', 'password', 'name', 'phone', 'role'],
     });
 
-    //user not found handel
     if (!findUser) {
-      throw new NotFoundException('User not found');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    //password matching
     const isPassMatch = await comparePassword(password, findUser.password);
 
-    //handle incorrect password
     if (!isPassMatch) {
-      throw new NotFoundException('Invalid password');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    // without password user object
-    const { password: _, ...safeUser } = findUser;
-
+    const { password: _password, ...safeUser } = findUser;
     return safeUser;
   }
 }
