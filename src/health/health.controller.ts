@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
+import { platform } from 'os';
 import {
   HealthCheckService,
   HealthCheck,
@@ -27,7 +28,7 @@ export class HealthController {
       () =>
         this.disk.checkStorage('disk_storage', {
           thresholdPercent: 0.9,
-          path: '/',
+          path: platform() === 'win32' ? 'C:\\' : '/',
         }),
     ]);
   }
