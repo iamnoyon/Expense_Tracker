@@ -58,7 +58,7 @@ export class UserService {
     };
   }
 
-  async login(dto: LoginDto) {
+  async validateUser(dto: LoginDto) {
     const { email, password } = dto;
 
     // find user
@@ -83,7 +83,5 @@ export class UserService {
     const { password: _, ...safeUser } = findUser;
 
     return safeUser;
-
-    return findUser;
   }
 }
